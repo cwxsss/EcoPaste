@@ -27,7 +27,8 @@
         "reason": "$string:pasteboard_reason",
         "usedScene": {
           "abilities": [
-            "EntryAbility"
+            "EntryAbility",
+            "EntryFormAbility"
           ],
           "when": "always"
         }

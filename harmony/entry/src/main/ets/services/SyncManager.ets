@@ -141,6 +141,9 @@ export class SyncManager {
 
   private readonly NOTIFICATION_ID: number = 10001;
   private isNotificationPublished: boolean = false;
+  private lastPublishedText: string = '';
+  private lastPublishTime: number = 0;
+  private isSlotCreated: boolean = false;
 
   /**
    * 发布或更新常驻通知栏保活卡片（带一键推送与拉取操作按钮）
@@ -153,10 +156,29 @@ export class SyncManager {
         try {
           await notificationManager.cancel(this.NOTIFICATION_ID);
           this.isNotificationPublished = false;
+          this.lastPublishedText = '';
         } catch (e) {
           // ignore
         }
       }
+      return;
+    }
+
+    let textToShow = customText;
+    if (!textToShow) {
+      if (this.status.currentText) {
+        textToShow = '当前剪贴板: ' + (this.status.currentText.length > 25 ? this.status.currentText.slice(0, 25) + '...' : this.status.currentText);
+      } else {
+        textToShow = '已连接 WebDAV，前台复制随时同步';
+      }
+    }
+
+    const now = new Date().getTime();
+    // 避免短时间内重复发送相同内容触发系统限流 (Error 1600009: The notification sending frequency reaches the upper limit)
+    if (!customText && this.isNotificationPublished && textToShow === this.lastPublishedText) {
+      return;
+    }
+    if (!customText && (now - this.lastPublishTime < 2000)) {
       return;
     }
 
@@ -170,6 +192,16 @@ export class SyncManager {
     }
 
     try {
+      // 注册服务通知渠道 Slot，确保常驻通知渠道级别正确
+      if (!this.isSlotCreated) {
+        try {
+          await notificationManager.addSlot(notificationManager.SlotType.SERVICE_INFORMATION);
+          this.isSlotCreated = true;
+        } catch (slotErr) {
+          // ignore
+        }
+      }
+
       const pushWantAgentInfo: wantAgent.WantAgentInfo = {
         wants: [
           {
@@ -211,18 +243,12 @@ export class SyncManager {
       };
       const openAgent = await wantAgent.getWantAgent(openWantAgentInfo);
 
-      let textToShow = customText;
-      if (!textToShow) {
-        if (this.status.currentText) {
-          textToShow = '当前剪贴板: ' + (this.status.currentText.length > 25 ? this.status.currentText.slice(0, 25) + '...' : this.status.currentText);
-        } else {
-          textToShow = '已连接 WebDAV，前台复制随时同步';
-        }
-      }
-
       const notificationRequest: notificationManager.NotificationRequest = {
         id: this.NOTIFICATION_ID,
         isOngoing: true,
+        isUnremovable: true,
+        tapDismissed: false, // 关键：点击通知主体或按钮时不清除通知
+        isAlertOnce: true, // 关键：更新时不重复响铃震动打扰
         notificationSlotType: notificationManager.SlotType.SERVICE_INFORMATION,
         wantAgent: openAgent,
         content: {
@@ -230,7 +256,7 @@ export class SyncManager {
           normal: {
             title: 'EcoPaste 剪贴板协同运行中',
             text: textToShow,
-            additionalText: '在线'
+            additionalText: '常驻保活'
           }
         },
         actionButtons: [
@@ -247,6 +273,8 @@ export class SyncManager {
 
       await notificationManager.publish(notificationRequest);
       this.isNotificationPublished = true;
+      this.lastPublishedText = textToShow;
+      this.lastPublishTime = now;
     } catch (err) {
       console.warn('updatePermanentNotification error:', JSON.stringify(err));
     }

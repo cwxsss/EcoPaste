@@ -71,10 +71,12 @@ export default class EntryAbility extends UIAbility {
     SyncManager.getInstance().checkAndUploadLocalClipboard();
     // 2. 同时主动拉取一次最新云端剪贴板
     SyncManager.getInstance().pullLatestFromCloud(false);
+    SyncManager.getInstance().updatePermanentNotification();
   }
 
   onBackground(): void {
     console.info('EcoPaste EntryAbility onBackground');
+    SyncManager.getInstance().updatePermanentNotification();
   }
 }
 

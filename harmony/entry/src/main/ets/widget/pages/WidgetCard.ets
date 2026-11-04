@@ -4,6 +4,12 @@ let storage = LocalStorage.getShared();
 @Component
 struct WidgetCard {
   @LocalStorageProp('dimension') dimension: number = 1;
+  @LocalStorageProp('pushStatus') pushStatus: string = '推送';
+  @LocalStorageProp('pushSub') pushSub: string = '推送到电脑';
+  @LocalStorageProp('pushColor') pushColor: string = '#0A59F7';
+  @LocalStorageProp('pullStatus') pullStatus: string = '拉取';
+  @LocalStorageProp('pullSub') pullSub: string = '从电脑拉取';
+  @LocalStorageProp('pullColor') pullColor: string = '#1F2329';
 
   build() {
     if (this.dimension === 2) {
@@ -25,13 +31,13 @@ struct WidgetCard {
         Row() {
           // 左半边：推送
           Column() {
-            Text('推送')
+            Text(this.pushStatus)
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0A59F7')
+              .fontColor(this.pushColor)
               .letterSpacing(1)
 
-            Text('推送到电脑')
+            Text(this.pushSub)
               .fontSize(11)
               .fontColor('#8F959E')
               .margin({ top: 4 })
@@ -42,8 +48,7 @@ struct WidgetCard {
           .alignItems(HorizontalAlign.Center)
           .onClick(() => {
             postCardAction(this, {
-              action: 'router',
-              abilityName: 'EntryAbility',
+              action: 'message',
               params: { action: 'push_clipboard' }
             });
           })
@@ -57,13 +62,13 @@ struct WidgetCard {
 
           // 右半边：拉取
           Column() {
-            Text('拉取')
+            Text(this.pullStatus)
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#1F2329')
+              .fontColor(this.pullColor)
               .letterSpacing(1)
 
-            Text('从电脑拉取')
+            Text(this.pullSub)
               .fontSize(11)
               .fontColor('#8F959E')
               .margin({ top: 4 })
@@ -74,8 +79,7 @@ struct WidgetCard {
           .alignItems(HorizontalAlign.Center)
           .onClick(() => {
             postCardAction(this, {
-              action: 'router',
-              abilityName: 'EntryAbility',
+              action: 'message',
               params: { action: 'pull_clipboard' }
             });
           })
@@ -88,17 +92,17 @@ struct WidgetCard {
       .backgroundColor('#FFFFFF')
       .borderRadius(20)
     } else {
-      // 1*2 小胶囊样式 (默认，精美纯净，参考简约卡片)
+      // 1*2 小胶囊样式 (默认，点击仅有卡片内视觉交互，不打开App)
       Row() {
         // 左半边：推送
         Column() {
-          Text('推送')
+          Text(this.pushStatus)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0A59F7')
+            .fontColor(this.pushColor)
             .letterSpacing(1)
 
-          Text('推送到电脑')
+          Text(this.pushSub)
             .fontSize(11)
             .fontColor('#8F959E')
             .margin({ top: 3 })
@@ -109,8 +113,7 @@ struct WidgetCard {
         .alignItems(HorizontalAlign.Center)
         .onClick(() => {
           postCardAction(this, {
-            action: 'router',
-            abilityName: 'EntryAbility',
+            action: 'message',
             params: {
               action: 'push_clipboard'
             }
@@ -126,13 +129,13 @@ struct WidgetCard {
 
         // 右半边：拉取
         Column() {
-          Text('拉取')
+          Text(this.pullStatus)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#1F2329')
+            .fontColor(this.pullColor)
             .letterSpacing(1)
 
-          Text('从电脑拉取')
+          Text(this.pullSub)
             .fontSize(11)
             .fontColor('#8F959E')
             .margin({ top: 3 })
@@ -143,8 +146,7 @@ struct WidgetCard {
         .alignItems(HorizontalAlign.Center)
         .onClick(() => {
           postCardAction(this, {
-            action: 'router',
-            abilityName: 'EntryAbility',
+            action: 'message',
             params: {
               action: 'pull_clipboard'
             }
