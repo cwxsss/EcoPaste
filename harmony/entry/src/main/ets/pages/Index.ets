@@ -24,7 +24,8 @@ struct Index {
     password: '',
     remoteDir: '/EcoPaste/',
     autoSync: true,
-    backgroundSync: true
+    backgroundSync: true,
+    notificationSync: true
   };
 
   @State isConfigOpen: boolean = false;
@@ -392,6 +393,28 @@ struct Index {
                 .justifyContent(FlexAlign.SpaceBetween)
 
                 Row() {
+                  Column() {
+                    Text('常驻通知栏快捷保活 (含快捷操作按钮)')
+                      .fontSize(14)
+                      .fontColor('#1F2329')
+                    Text('锁屏/切出后在通知栏常驻，下拉直接点击推送或拉取')
+                      .fontSize(11)
+                      .fontColor('#8F959E')
+                      .margin({ top: 2 })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+
+                  Toggle({ type: ToggleType.Switch, isOn: this.config.notificationSync })
+                    .selectedColor('#0A59F7')
+                    .onChange((isOn: boolean) => {
+                      this.config.notificationSync = isOn;
+                      this.saveConfig();
+                    })
+                }
+                .width('100%')
+                .justifyContent(FlexAlign.SpaceBetween)
+
+                Row() {
                   Text('后台无感长时同步 (切出应用后继续)')
                     .fontSize(14)
                     .fontColor('#1F2329')
@@ -457,6 +480,18 @@ struct Index {
               .alignSelf(ItemAlign.Start)
 
             Text('3. 权限保证：已内置请求剪贴板读写与长时后台传输权限，确保无感顺畅体验。')
+              .fontSize(12)
+              .fontColor('#646A73')
+              .lineHeight(18)
+              .alignSelf(ItemAlign.Start)
+
+            Text('5. 桌面胶囊卡片：可长按手机桌面空白处 -> 服务卡片 -> 找到 EcoPaste，添加 1×2 胶囊或 2×2 卡片，直接在桌面一键推送/拉取。')
+              .fontSize(12)
+              .fontColor('#646A73')
+              .lineHeight(18)
+              .alignSelf(ItemAlign.Start)
+
+            Text('4. 锁屏/后台常驻保活设置：如需在锁屏或切出后保持后台同步，请前往手机系统【设置 -> 应用和服务 -> 应用启动管理 -> EcoPaste】关闭自动管理，勾选【允许自启动、允许关联启动、允许后台活动】；并在【设置 -> 电池 -> 更多电池设置】中开启【休眠时始终保持网络连接】。')
               .fontSize(12)
               .fontColor('#646A73')
               .lineHeight(18)

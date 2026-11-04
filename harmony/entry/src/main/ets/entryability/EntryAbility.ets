@@ -7,6 +7,38 @@ import { SyncManager } from '../services/SyncManager';
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('EcoPaste EntryAbility onCreate');
+    this.handleShareData(want);
+    this.handleAction(want);
+  }
+
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    console.info('EcoPaste EntryAbility onNewWant');
+    this.handleShareData(want);
+    this.handleAction(want);
+  }
+
+  private handleAction(want: Want): void {
+    if (!want || !want.parameters) return;
+    const action = want.parameters['action'] as string;
+    if (action === 'push_clipboard') {
+      SyncManager.getInstance().pushCurrentClipboardToCloud();
+    } else if (action === 'pull_clipboard') {
+      SyncManager.getInstance().pullLatestFromCloud(true);
+    }
+  }
+
+  private handleShareData(want: Want): void {
+    if (want && want.action === 'ohos.want.action.sendData') {
+      let sharedText = '';
+      if (want.parameters) {
+        sharedText = (want.parameters['ohos.extra.param.key.text'] ||
+          want.parameters['ohos.extra.param.key.TEXT'] ||
+          want.parameters['text'] || '') as string;
+      }
+      if (sharedText && sharedText.trim()) {
+        SyncManager.getInstance().uploadSharedText(sharedText);
+      }
+    }
   }
 
   onDestroy(): void {
@@ -34,7 +66,10 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     console.info('EcoPaste EntryAbility onForeground');
-    // 应用回到前台时，立即主动拉取一次最新云端剪贴板
+    // 应用回到前台时：
+    // 1. 优先检查并秒传在后台/锁屏期间复制的新内容
+    SyncManager.getInstance().checkAndUploadLocalClipboard();
+    // 2. 同时主动拉取一次最新云端剪贴板
     SyncManager.getInstance().pullLatestFromCloud(false);
   }
 

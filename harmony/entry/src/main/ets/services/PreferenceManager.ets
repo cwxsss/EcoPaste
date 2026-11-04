@@ -8,6 +8,7 @@ export interface WebDavConfig {
   remoteDir: string;
   autoSync: boolean;
   backgroundSync: boolean;
+  notificationSync: boolean;
 }
 
 const PREF_NAME = 'ecopaste_preferences';
@@ -17,6 +18,7 @@ const KEY_PASSWORD = 'webdav_password';
 const KEY_REMOTE_DIR = 'webdav_remote_dir';
 const KEY_AUTO_SYNC = 'auto_sync';
 const KEY_BG_SYNC = 'bg_sync';
+const KEY_NOTIFICATION_SYNC = 'notification_sync';
 
 export class PreferenceManager {
   private static instance: PreferenceManager | null = null;
@@ -45,7 +47,8 @@ export class PreferenceManager {
         password: '',
         remoteDir: '/EcoPaste/',
         autoSync: true,
-        backgroundSync: true
+        backgroundSync: true,
+        notificationSync: true
       };
     }
 
@@ -55,6 +58,7 @@ export class PreferenceManager {
     const remoteDir = (await this.pref.get(KEY_REMOTE_DIR, '/EcoPaste/')) as string;
     const autoSync = (await this.pref.get(KEY_AUTO_SYNC, true)) as boolean;
     const backgroundSync = (await this.pref.get(KEY_BG_SYNC, true)) as boolean;
+    const notificationSync = (await this.pref.get(KEY_NOTIFICATION_SYNC, true)) as boolean;
 
     return {
       endpoint,
@@ -62,7 +66,8 @@ export class PreferenceManager {
       password,
       remoteDir,
       autoSync,
-      backgroundSync
+      backgroundSync,
+      notificationSync
     };
   }
 
@@ -77,6 +82,7 @@ export class PreferenceManager {
     await this.pref.put(KEY_REMOTE_DIR, config.remoteDir);
     await this.pref.put(KEY_AUTO_SYNC, config.autoSync);
     await this.pref.put(KEY_BG_SYNC, config.backgroundSync);
+    await this.pref.put(KEY_NOTIFICATION_SYNC, config.notificationSync);
     await this.pref.flush();
   }
 }

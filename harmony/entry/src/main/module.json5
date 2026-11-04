@@ -33,6 +33,21 @@
         }
       }
     ],
+    "extensionAbilities": [
+      {
+        "name": "EntryFormAbility",
+        "srcEntry": "./ets/entryformability/EntryFormAbility.ets",
+        "label": "$string:EntryAbility_label",
+        "description": "$string:widget_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      }
+    ],
     "abilities": [
       {
         "name": "EntryAbility",
@@ -54,10 +69,19 @@
             "actions": [
               "ohos.want.action.home"
             ]
+          },
+          {
+            "actions": [
+              "ohos.want.action.sendData"
+            ],
+            "uris": [
+              {
+                "type": "text/plain"
+              }
+            ]
           }
         ]
       }
     ]
   }
 }
-

@@ -3,6 +3,7 @@ import common from '@ohos.app.ability.common';
 import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
 import backgroundTaskManager from '@ohos.resourceschedule.backgroundTaskManager';
 import wantAgent from '@ohos.app.ability.wantAgent';
+import notificationManager from '@ohos.notificationManager';
 import { WebDavService, LivePayload } from './WebDavService';
 import { PreferenceManager, WebDavConfig } from './PreferenceManager';
 import { cleanToPlainText } from '../utils/TextFormatUtils';
@@ -82,6 +83,7 @@ export class SyncManager {
     for (let i = 0; i < this.statusListeners.length; i++) {
       this.statusListeners[i](this.status);
     }
+    this.updatePermanentNotification();
   }
 
   public async init(context: common.UIAbilityContext): Promise<void> {
@@ -108,6 +110,7 @@ export class SyncManager {
     if (config.backgroundSync) {
       await this.startBackgroundRunning();
     }
+    await this.updatePermanentNotification();
   }
 
   public updateConfig(config: WebDavConfig): void {
@@ -132,7 +135,121 @@ export class SyncManager {
       this.stopBackgroundRunning();
     }
 
+    this.updatePermanentNotification();
     this.checkHealth();
+  }
+
+  private readonly NOTIFICATION_ID: number = 10001;
+  private isNotificationPublished: boolean = false;
+
+  /**
+   * 发布或更新常驻通知栏保活卡片（带一键推送与拉取操作按钮）
+   */
+  public async updatePermanentNotification(customText?: string): Promise<void> {
+    const prefMgr = PreferenceManager.getInstance();
+    const config = await prefMgr.loadConfig();
+    if (!config.notificationSync || !this.context) {
+      if (this.isNotificationPublished) {
+        try {
+          await notificationManager.cancel(this.NOTIFICATION_ID);
+          this.isNotificationPublished = false;
+        } catch (e) {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    try {
+      const enabled = await notificationManager.isNotificationEnabled();
+      if (!enabled) {
+        await notificationManager.requestEnableNotification(this.context);
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      const pushWantAgentInfo: wantAgent.WantAgentInfo = {
+        wants: [
+          {
+            bundleName: 'com.ecopaste.harmony',
+            abilityName: 'EntryAbility',
+            parameters: { action: 'push_clipboard' }
+          }
+        ],
+        operationType: wantAgent.OperationType.START_ABILITY,
+        requestCode: 101,
+        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+      };
+      const pushAgent = await wantAgent.getWantAgent(pushWantAgentInfo);
+
+      const pullWantAgentInfo: wantAgent.WantAgentInfo = {
+        wants: [
+          {
+            bundleName: 'com.ecopaste.harmony',
+            abilityName: 'EntryAbility',
+            parameters: { action: 'pull_clipboard' }
+          }
+        ],
+        operationType: wantAgent.OperationType.START_ABILITY,
+        requestCode: 102,
+        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+      };
+      const pullAgent = await wantAgent.getWantAgent(pullWantAgentInfo);
+
+      const openWantAgentInfo: wantAgent.WantAgentInfo = {
+        wants: [
+          {
+            bundleName: 'com.ecopaste.harmony',
+            abilityName: 'EntryAbility'
+          }
+        ],
+        operationType: wantAgent.OperationType.START_ABILITY,
+        requestCode: 100,
+        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+      };
+      const openAgent = await wantAgent.getWantAgent(openWantAgentInfo);
+
+      let textToShow = customText;
+      if (!textToShow) {
+        if (this.status.currentText) {
+          textToShow = '当前剪贴板: ' + (this.status.currentText.length > 25 ? this.status.currentText.slice(0, 25) + '...' : this.status.currentText);
+        } else {
+          textToShow = '已连接 WebDAV，前台复制随时同步';
+        }
+      }
+
+      const notificationRequest: notificationManager.NotificationRequest = {
+        id: this.NOTIFICATION_ID,
+        isOngoing: true,
+        notificationSlotType: notificationManager.SlotType.SERVICE_INFORMATION,
+        wantAgent: openAgent,
+        content: {
+          notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+          normal: {
+            title: 'EcoPaste 剪贴板协同运行中',
+            text: textToShow,
+            additionalText: '在线'
+          }
+        },
+        actionButtons: [
+          {
+            title: '📋 推送复制',
+            wantAgent: pushAgent
+          },
+          {
+            title: '⬇️ 拉取粘贴',
+            wantAgent: pullAgent
+          }
+        ]
+      };
+
+      await notificationManager.publish(notificationRequest);
+      this.isNotificationPublished = true;
+    } catch (err) {
+      console.warn('updatePermanentNotification error:', JSON.stringify(err));
+    }
   }
 
   public async checkHealth(): Promise<void> {
@@ -177,6 +294,39 @@ export class SyncManager {
       this.isListening = true;
     } catch (err) {
       console.error('startClipboardWatcher error:', JSON.stringify(err));
+    }
+  }
+
+  /**
+   * 主动触发本地剪贴板检查与上传（切回前台时无感瞬间执行）
+   */
+  public async checkAndUploadLocalClipboard(): Promise<void> {
+    await this.handleLocalClipboardChange();
+  }
+
+  /**
+   * 接收来自系统分享菜单（Share Kit）的文本，并直接推送到 WebDAV
+   */
+  public async uploadSharedText(rawText: string): Promise<void> {
+    const text = cleanToPlainText(rawText);
+    if (!text) return;
+    this.lastLocalText = text;
+    this.notifyStatus({ syncing: true, message: '正在推送分享文本到电脑...' });
+
+    if (this.webDavService) {
+      const res = await this.webDavService.uploadLiveText(text);
+      if (res.success) {
+        this.notifyStatus({
+          online: true,
+          syncing: false,
+          currentText: text,
+          sourceDevice: '系统分享',
+          lastSyncTime: new Date().getTime(),
+          message: '已通过分享推送到电脑！直接 Ctrl+V 即可粘贴'
+        });
+      } else {
+        this.notifyStatus({ syncing: false, message: res.message || '上传失败' });
+      }
     }
   }
 
@@ -325,6 +475,23 @@ export class SyncManager {
   /**
    * 启动自动轮询
    */
+  /**
+   * 尝试后台探测前台应用复制（若系统因安全策略拦截则静默忽略）
+   */
+  private async tryBackgroundClipboardProbe(): Promise<void> {
+    try {
+      const board = pasteboard.getSystemPasteboard();
+      const data = await board.getData();
+      const raw = data.getPrimaryText();
+      const text = cleanToPlainText(raw);
+      if (text && text !== this.lastLocalText) {
+        this.handleLocalClipboardChange();
+      }
+    } catch (e) {
+      // 静默捕获，防止系统后台拦截报错干扰主流程
+    }
+  }
+
   private startPolling(enabled: boolean): void {
     if (this.isPolling) {
       this.stopPolling();
@@ -337,6 +504,8 @@ export class SyncManager {
     // 默认每 2.5 秒轻量同步一次，兼顾实时性与省电
     this.timerId = setInterval(() => {
       this.pullLatestFromCloud(false);
+      // 前台软件复制探测（在系统允许后台读取的特定场景下自动触发）
+      this.tryBackgroundClipboardProbe();
     }, 2500);
   }
 

@@ -15,6 +15,14 @@
     {
       "name": "pasteboard_reason",
       "value": "用于读取与写入系统剪贴板，实现跨设备无感粘贴"
+    },
+    {
+      "name": "widget_display_name",
+      "value": "EcoPaste 剪贴板胶囊"
+    },
+    {
+      "name": "widget_desc",
+      "value": "桌面快捷查看、推送与拉取剪贴板"
     }
   ]
 }
