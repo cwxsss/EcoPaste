@@ -167,7 +167,12 @@ export class SyncManager {
     let textToShow = customText;
     if (!textToShow) {
       if (this.status.currentText) {
-        textToShow = '当前剪贴板: ' + (this.status.currentText.length > 25 ? this.status.currentText.slice(0, 25) + '...' : this.status.currentText);
+        const preview = this.status.currentText.length > 25 ? this.status.currentText.slice(0, 25) + '...' : this.status.currentText;
+        if (this.status.sourceDevice.includes('电脑')) {
+          textToShow = '电脑已同步: ' + preview + ' (长按即可粘贴)';
+        } else {
+          textToShow = '手机剪贴板: ' + preview;
+        }
       } else {
         textToShow = '已连接 WebDAV，前台复制随时同步';
       }

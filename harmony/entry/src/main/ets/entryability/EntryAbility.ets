@@ -22,8 +22,10 @@ export default class EntryAbility extends UIAbility {
     const action = want.parameters['action'] as string;
     if (action === 'push_clipboard') {
       SyncManager.getInstance().pushCurrentClipboardToCloud();
+      this.autoReturnToBackgroundAfterDelay(700);
     } else if (action === 'pull_clipboard') {
       SyncManager.getInstance().pullLatestFromCloud(true);
+      this.autoReturnToBackgroundAfterDelay(700);
     }
   }
 
@@ -37,8 +39,24 @@ export default class EntryAbility extends UIAbility {
       }
       if (sharedText && sharedText.trim()) {
         SyncManager.getInstance().uploadSharedText(sharedText);
+        this.autoReturnToBackgroundAfterDelay(700);
       }
     }
+  }
+
+  /**
+   * 通知栏快捷键/分享完成轻量动作后，自动退回后台，保持前台正在运行的应用不被打断
+   */
+  private autoReturnToBackgroundAfterDelay(delayMs: number): void {
+    setTimeout(async () => {
+      try {
+        if (this.context) {
+          await this.context.moveAbilityToBackground();
+        }
+      } catch (e) {
+        console.warn('moveAbilityToBackground failed:', JSON.stringify(e));
+      }
+    }, delayMs);
   }
 
   onDestroy(): void {
