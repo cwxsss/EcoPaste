@@ -89,12 +89,16 @@ export default class EntryAbility extends UIAbility {
     SyncManager.getInstance().checkAndUploadLocalClipboard();
     // 2. 同时主动拉取一次最新云端剪贴板
     SyncManager.getInstance().pullLatestFromCloud(false);
-    SyncManager.getInstance().updatePermanentNotification();
+    // 3. 强制重绘/恢复常驻通知栏保活卡片（即便锁屏期间被系统清理，切回前台也会立刻恢复常驻）
+    SyncManager.getInstance().updatePermanentNotification(undefined, true);
+    // 4. 确保长时后台同步状态处于激活状态
+    SyncManager.getInstance().ensureBackgroundRunning();
   }
 
   onBackground(): void {
     console.info('EcoPaste EntryAbility onBackground');
-    SyncManager.getInstance().updatePermanentNotification();
+    // 应用切入后台时，强制刷新一次通知栏常驻卡片确保常驻状态
+    SyncManager.getInstance().updatePermanentNotification(undefined, true);
   }
 }
 

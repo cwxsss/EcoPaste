@@ -406,8 +406,11 @@ struct Index {
 
                   Toggle({ type: ToggleType.Switch, isOn: this.config.notificationSync })
                     .selectedColor('#0A59F7')
-                    .onChange((isOn: boolean) => {
+                    .onChange(async (isOn: boolean) => {
                       this.config.notificationSync = isOn;
+                      if (isOn) {
+                        await this.syncManager.checkNotificationPermissionAndGuide();
+                      }
                       this.saveConfig();
                     })
                 }
@@ -485,13 +488,13 @@ struct Index {
               .lineHeight(18)
               .alignSelf(ItemAlign.Start)
 
-            Text('5. 桌面胶囊卡片：可长按手机桌面空白处 -> 服务卡片 -> 找到 EcoPaste，添加 1×2 胶囊或 2×2 卡片，直接在桌面一键推送/拉取。')
+            Text('4. 锁屏/后台常驻通知栏保活设置：如需在锁屏或切出后保持通知栏常驻与后台协同，建议完成系统设置：\n① 多任务加锁：手机底部上滑进入多任务后台卡片，在 EcoPaste 卡片向下一拉，出现小锁头 🔒 加锁，防止被系统清理；\n② 允许后台活动：前往手机系统【设置 -> 应用和服务 -> 应用启动管理 -> EcoPaste】关闭自动管理，勾选开启【允许自启动、允许关联启动、允许后台活动】；并在【设置 -> 通知和状态栏 -> EcoPaste】中开启【允许通知】。')
               .fontSize(12)
               .fontColor('#646A73')
               .lineHeight(18)
               .alignSelf(ItemAlign.Start)
 
-            Text('4. 锁屏/后台常驻保活设置：如需在锁屏或切出后保持后台同步，请前往手机系统【设置 -> 应用和服务 -> 应用启动管理 -> EcoPaste】关闭自动管理，勾选【允许自启动、允许关联启动、允许后台活动】；并在【设置 -> 电池 -> 更多电池设置】中开启【休眠时始终保持网络连接】。')
+            Text('5. 桌面胶囊卡片：可长按手机桌面空白处 -> 服务卡片 -> 找到 EcoPaste，添加 1×2 胶囊或 2×2 卡片，直接在桌面一键推送/拉取。')
               .fontSize(12)
               .fontColor('#646A73')
               .lineHeight(18)

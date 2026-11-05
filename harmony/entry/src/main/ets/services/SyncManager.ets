@@ -4,6 +4,7 @@ import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
 import backgroundTaskManager from '@ohos.resourceschedule.backgroundTaskManager';
 import wantAgent from '@ohos.app.ability.wantAgent';
 import notificationManager from '@ohos.notificationManager';
+import promptAction from '@ohos.promptAction';
 import { WebDavService, LivePayload } from './WebDavService';
 import { PreferenceManager, WebDavConfig } from './PreferenceManager';
 import { cleanToPlainText } from '../utils/TextFormatUtils';
@@ -147,8 +148,10 @@ export class SyncManager {
 
   /**
    * 发布或更新常驻通知栏保活卡片（带一键推送与拉取操作按钮）
+   * @param customText 自定义显示文本，缺省时自动显示最新剪贴板摘要
+   * @param force 是否强制发布（绕过已发布和内容未变更的缓存抑制）
    */
-  public async updatePermanentNotification(customText?: string): Promise<void> {
+  public async updatePermanentNotification(customText?: string, force: boolean = false): Promise<void> {
     const prefMgr = PreferenceManager.getInstance();
     const config = await prefMgr.loadConfig();
     if (!config.notificationSync || !this.context) {
@@ -162,6 +165,23 @@ export class SyncManager {
         }
       }
       return;
+    }
+
+    // 1. 动态探测系统当前真实活跃的通知列表，避免内存中标记为 published 但通知中心已被系统回收
+    let isActuallyActive = false;
+    try {
+      const activeList = await notificationManager.getActiveNotifications();
+      if (activeList && activeList.length > 0) {
+        isActuallyActive = activeList.some((item) => item.id === this.NOTIFICATION_ID);
+      }
+    } catch (activeErr) {
+      console.warn('getActiveNotifications error:', JSON.stringify(activeErr));
+      isActuallyActive = false;
+    }
+
+    // 若通知中心已无此通知，将本地发布状态重置为 false，确保后续流程触发重新发布
+    if (!isActuallyActive) {
+      this.isNotificationPublished = false;
     }
 
     let textToShow = customText;
@@ -179,11 +199,12 @@ export class SyncManager {
     }
 
     const now = new Date().getTime();
-    // 避免短时间内重复发送相同内容触发系统限流 (Error 1600009: The notification sending frequency reaches the upper limit)
-    if (!customText && this.isNotificationPublished && textToShow === this.lastPublishedText) {
+    // 只有在通知真实存在、非强制刷新、非自定义文本且内容完全一致时才跳过发布，避免高频刷屏
+    if (!force && isActuallyActive && !customText && textToShow === this.lastPublishedText) {
       return;
     }
-    if (!customText && (now - this.lastPublishTime < 2000)) {
+    // 当通知真实存活且内容变化时，做 2 秒频控以防频繁调用系统 API 触发 Error 1600009
+    if (!force && isActuallyActive && !customText && (now - this.lastPublishTime < 2000)) {
       return;
     }
 
@@ -280,8 +301,45 @@ export class SyncManager {
       this.isNotificationPublished = true;
       this.lastPublishedText = textToShow;
       this.lastPublishTime = now;
+      console.info('updatePermanentNotification published successfully');
     } catch (err) {
       console.warn('updatePermanentNotification error:', JSON.stringify(err));
+      // 若发布报错，重置标记
+      this.isNotificationPublished = false;
+    }
+  }
+
+  /**
+   * 检查通知权限并友好引导开启
+   */
+  public async checkNotificationPermissionAndGuide(): Promise<boolean> {
+    try {
+      const enabled = await notificationManager.isNotificationEnabled();
+      if (!enabled) {
+        if (this.context) {
+          try {
+            await notificationManager.requestEnableNotification(this.context);
+          } catch (e) {
+            // ignore
+          }
+        }
+        const stillEnabled = await notificationManager.isNotificationEnabled();
+        if (!stillEnabled) {
+          try {
+            promptAction.showToast({
+              message: '提示：请在系统设置中允许 EcoPaste 发送通知，常驻通知栏才能生效',
+              duration: 3500
+            });
+          } catch (e) {
+            // ignore
+          }
+          return false;
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('checkNotificationPermission error:', JSON.stringify(err));
+      return false;
     }
   }
 
@@ -578,6 +636,19 @@ export class SyncManager {
       console.info('startBackgroundRunning success');
     } catch (err) {
       console.warn('startBackgroundRunning error:', JSON.stringify(err));
+    }
+  }
+
+  /**
+   * 确保长时后台同步状态处于激活状态（切回前台或从锁屏唤醒时自检恢复）
+   */
+  public async ensureBackgroundRunning(): Promise<void> {
+    const prefMgr = PreferenceManager.getInstance();
+    const config = await prefMgr.loadConfig();
+    if (config.backgroundSync && this.context) {
+      // 重置标志，允许 startBackgroundRunning 重新激活可能被系统自动取消的 ContinuousTask
+      this.isBackgroundRunning = false;
+      await this.startBackgroundRunning();
     }
   }
 
