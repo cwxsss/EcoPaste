@@ -7,45 +7,54 @@ import { SyncManager } from '../services/SyncManager';
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('EcoPaste EntryAbility onCreate');
-    this.handleShareData(want);
     this.handleAction(want);
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('EcoPaste EntryAbility onNewWant');
-    this.handleShareData(want);
     this.handleAction(want);
   }
 
-  private handleAction(want: Want): void {
+  private async handleAction(want: Want): Promise<void> {
     if (!want || !want.parameters) return;
-    const action = want.parameters['action'] as string;
-    if (action === 'push_clipboard') {
-      SyncManager.getInstance().pushCurrentClipboardToCloud();
-      this.autoReturnToBackgroundAfterDelay(700);
-    } else if (action === 'pull_clipboard') {
-      SyncManager.getInstance().pullLatestFromCloud(true);
-      this.autoReturnToBackgroundAfterDelay(700);
+    let action = (want.parameters['action'] || '') as string;
+    if (!action && want.parameters['params']) {
+      try {
+        const rawParams: Object = want.parameters['params'];
+        if (typeof rawParams === 'string') {
+          const parsed = JSON.parse(rawParams) as Record<string, string>;
+          if (parsed && parsed['action']) {
+            action = parsed['action'];
+          }
+        } else {
+          const dict = rawParams as Record<string, string>;
+          if (dict && dict['action']) {
+            action = dict['action'];
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     }
-  }
 
-  private handleShareData(want: Want): void {
-    if (want && want.action === 'ohos.want.action.sendData') {
-      let sharedText = '';
-      if (want.parameters) {
-        sharedText = (want.parameters['ohos.extra.param.key.text'] ||
-          want.parameters['ohos.extra.param.key.TEXT'] ||
-          want.parameters['text'] || '') as string;
-      }
-      if (sharedText && sharedText.trim()) {
-        SyncManager.getInstance().uploadSharedText(sharedText);
-        this.autoReturnToBackgroundAfterDelay(700);
-      }
+    if (!action) return;
+
+    // 关键：若应用冷启动，确保在触发动作前先完成 SyncManager 与 WebDAV 初始化
+    if (this.context) {
+      await SyncManager.getInstance().init(this.context);
+    }
+
+    if (action === 'push_clipboard') {
+      await SyncManager.getInstance().pushCurrentClipboardToCloud();
+      this.autoReturnToBackgroundAfterDelay(500);
+    } else if (action === 'pull_clipboard') {
+      await SyncManager.getInstance().pullLatestFromCloud(true);
+      this.autoReturnToBackgroundAfterDelay(500);
     }
   }
 
   /**
-   * 通知栏快捷键/分享完成轻量动作后，自动退回后台，保持前台正在运行的应用不被打断
+   * 桌面胶囊完成轻量动作后，自动退回后台回到桌面
    */
   private autoReturnToBackgroundAfterDelay(delayMs: number): void {
     setTimeout(async () => {

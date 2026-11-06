@@ -48,7 +48,8 @@ struct WidgetCard {
           .alignItems(HorizontalAlign.Center)
           .onClick(() => {
             postCardAction(this, {
-              action: 'message',
+              action: 'router',
+              abilityName: 'EntryAbility',
               params: { action: 'push_clipboard' }
             });
           })
@@ -79,7 +80,8 @@ struct WidgetCard {
           .alignItems(HorizontalAlign.Center)
           .onClick(() => {
             postCardAction(this, {
-              action: 'message',
+              action: 'router',
+              abilityName: 'EntryAbility',
               params: { action: 'pull_clipboard' }
             });
           })
@@ -113,7 +115,8 @@ struct WidgetCard {
         .alignItems(HorizontalAlign.Center)
         .onClick(() => {
           postCardAction(this, {
-            action: 'message',
+            action: 'router',
+            abilityName: 'EntryAbility',
             params: {
               action: 'push_clipboard'
             }
@@ -146,7 +149,8 @@ struct WidgetCard {
         .alignItems(HorizontalAlign.Center)
         .onClick(() => {
           postCardAction(this, {
-            action: 'message',
+            action: 'router',
+            abilityName: 'EntryAbility',
             params: {
               action: 'pull_clipboard'
             }

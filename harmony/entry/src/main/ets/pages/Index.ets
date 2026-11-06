@@ -394,10 +394,10 @@ struct Index {
 
                 Row() {
                   Column() {
-                    Text('常驻通知栏快捷保活 (含快捷操作按钮)')
+                    Text('常驻通知栏保活 (提升后台进程存活度)')
                       .fontSize(14)
                       .fontColor('#1F2329')
-                    Text('锁屏/切出后在通知栏常驻，下拉直接点击推送或拉取')
+                    Text('在通知栏常驻运行，降低被系统直接休眠杀后台的概率')
                       .fontSize(11)
                       .fontColor('#8F959E')
                       .margin({ top: 2 })

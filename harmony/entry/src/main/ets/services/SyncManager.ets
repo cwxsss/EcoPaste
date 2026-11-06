@@ -228,34 +228,6 @@ export class SyncManager {
         }
       }
 
-      const pushWantAgentInfo: wantAgent.WantAgentInfo = {
-        wants: [
-          {
-            bundleName: 'com.ecopaste.harmony',
-            abilityName: 'EntryAbility',
-            parameters: { action: 'push_clipboard' }
-          }
-        ],
-        operationType: wantAgent.OperationType.START_ABILITY,
-        requestCode: 101,
-        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
-      };
-      const pushAgent = await wantAgent.getWantAgent(pushWantAgentInfo);
-
-      const pullWantAgentInfo: wantAgent.WantAgentInfo = {
-        wants: [
-          {
-            bundleName: 'com.ecopaste.harmony',
-            abilityName: 'EntryAbility',
-            parameters: { action: 'pull_clipboard' }
-          }
-        ],
-        operationType: wantAgent.OperationType.START_ABILITY,
-        requestCode: 102,
-        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
-      };
-      const pullAgent = await wantAgent.getWantAgent(pullWantAgentInfo);
-
       const openWantAgentInfo: wantAgent.WantAgentInfo = {
         wants: [
           {
@@ -273,7 +245,7 @@ export class SyncManager {
         id: this.NOTIFICATION_ID,
         isOngoing: true,
         isUnremovable: true,
-        tapDismissed: false, // 关键：点击通知主体或按钮时不清除通知
+        tapDismissed: false, // 关键：点击通知主体时不清除通知
         isAlertOnce: true, // 关键：更新时不重复响铃震动打扰
         notificationSlotType: notificationManager.SlotType.SERVICE_INFORMATION,
         wantAgent: openAgent,
@@ -284,17 +256,7 @@ export class SyncManager {
             text: textToShow,
             additionalText: '常驻保活'
           }
-        },
-        actionButtons: [
-          {
-            title: '📋 推送复制',
-            wantAgent: pushAgent
-          },
-          {
-            title: '⬇️ 拉取粘贴',
-            wantAgent: pullAgent
-          }
-        ]
+        }
       };
 
       await notificationManager.publish(notificationRequest);
@@ -505,6 +467,14 @@ export class SyncManager {
         const pData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, cleanedText);
         await board.setData(pData);
 
+        if (manual) {
+          try {
+            promptAction.showToast({ message: '已拉取至手机剪贴板 ✓ 长按即可粘贴', duration: 2000 });
+          } catch (e) {
+            // ignore
+          }
+        }
+
         this.notifyStatus({
           online: true,
           syncing: false,
@@ -515,11 +485,21 @@ export class SyncManager {
         });
       } else {
         if (manual) {
+          try {
+            promptAction.showToast({ message: '手机剪贴板已是最新内容', duration: 2000 });
+          } catch (e) {
+            // ignore
+          }
           this.notifyStatus({ syncing: false, message: '当前内容已是最新' });
         }
       }
     } catch (err) {
       if (manual) {
+        try {
+          promptAction.showToast({ message: '拉取失败，请检查网络配置', duration: 2000 });
+        } catch (e) {
+          // ignore
+        }
         this.notifyStatus({ syncing: false, message: '拉取失败，请检查网络与配置' });
       }
     }
@@ -536,6 +516,11 @@ export class SyncManager {
 
       const text = cleanToPlainText(rawText);
       if (!text) {
+        try {
+          promptAction.showToast({ message: '手机剪贴板为空，暂无可推内容', duration: 2000 });
+        } catch (e) {
+          // ignore
+        }
         this.notifyStatus({ message: '手机剪贴板为空' });
         return;
       }
@@ -546,6 +531,11 @@ export class SyncManager {
       if (this.webDavService) {
         const res = await this.webDavService.uploadLiveText(text);
         if (res.success) {
+          try {
+            promptAction.showToast({ message: '已推送至电脑 ✓ 直接在电脑 Ctrl+V 粘贴', duration: 2000 });
+          } catch (e) {
+            // ignore
+          }
           this.notifyStatus({
             online: true,
             syncing: false,
@@ -555,10 +545,20 @@ export class SyncManager {
             message: '推送成功！电脑端直接 Ctrl+V 即可粘贴'
           });
         } else {
+          try {
+            promptAction.showToast({ message: res.message || '推送失败，请检查网络设置', duration: 2000 });
+          } catch (e) {
+            // ignore
+          }
           this.notifyStatus({ syncing: false, message: res.message || '上传失败，请检查设置' });
         }
       }
     } catch (err) {
+      try {
+        promptAction.showToast({ message: '读取手机剪贴板失败', duration: 2000 });
+      } catch (e) {
+        // ignore
+      }
       this.notifyStatus({ syncing: false, message: '读取手机剪贴板失败' });
     }
   }
